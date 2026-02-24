@@ -369,7 +369,6 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
         zone: hostedZone,
         recordName: subdomain,
         domainName: customDomain.regionalDomainName,
-        deleteExisting: true,
       });
     }
 
