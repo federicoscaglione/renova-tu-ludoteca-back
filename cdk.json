@@ -19,6 +19,8 @@
   "context": {
     "apiDomainName": "api.renovatuludoteca.com",
     "apiCertificateArn": "arn:aws:acm:us-east-1:265134154871:certificate/523bbe6f-ea51-4341-b931-6d7195b656d0",
+    "invitationFromEmail": "federico.scago@gmail.com",
+    "frontendUrl": "https://www.renovatuludoteca.com",
     "@aws-cdk/aws-signer:signingProfileNamePassedToCfn": true,
     "@aws-cdk/aws-ecs-patterns:secGroupsDisablesImplicitOpenListener": true,
     "@aws-cdk/aws-lambda:recognizeLayerVersion": true,
