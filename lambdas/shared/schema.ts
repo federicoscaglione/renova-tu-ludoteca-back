@@ -56,3 +56,33 @@ export interface SessionParticipantItem {
   userId: string;
   joinedAt: string;
 }
+
+export type UserRole = "normal" | "premium";
+
+export interface UserItem {
+  pk: string;
+  sk: string;
+  userId: string;
+  dni: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  province: string;
+  postalCode?: string;
+  role: UserRole;
+  createdAt: string;
+}
+
+export interface InvitationItem {
+  pk: string;
+  sk: string;
+  invitationCode: string;
+  inviterId: string;
+  inviteeEmail: string;
+  createdAt: string;
+  used: boolean;
+  usedBy?: string;
+}

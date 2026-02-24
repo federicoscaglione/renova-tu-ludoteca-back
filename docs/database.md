@@ -81,3 +81,47 @@ Definición explícita de tablas, claves e índices. Los tipos TypeScript están
 
 **GSI:**
 - **byUser:** PK `userId` (String), SK `joinedAt` (String) — listar meetups por usuario.
+
+---
+
+## Tabla: `renova-users`
+
+Tabla de un solo tipo con PK/SK genéricos; almacena perfiles de usuario e invitaciones.
+
+### Entidad User (perfil)
+
+| Atributo   | Tipo   | Descripción                                |
+|------------|--------|--------------------------------------------|
+| pk         | string | PK. `USER#<sub>` (Cognito sub).            |
+| sk         | string | SK. `USER#<sub>`.                          |
+| userId     | string | Cognito `sub`.                             |
+| dni        | string | DNI único.                                 |
+| firstName  | string | Nombre.                                    |
+| lastName   | string | Apellido.                                  |
+| email      | string | Email.                                     |
+| phone      | string | Teléfono.                                  |
+| address    | string | Dirección.                                 |
+| city       | string | Ciudad.                                    |
+| province   | string | Provincia.                                 |
+| postalCode | string | Código postal (opcional).                  |
+| role       | string | `normal` o `premium`.                      |
+| createdAt  | string | ISO 8601.                                  |
+
+**Claves:** PK `pk` (String), SK `sk` (String).
+
+**GSI byDni:** PK `dni` (String), SK `userId` (String) — comprobar unicidad de DNI al registrar.
+
+### Entidad Invitation
+
+| Atributo      | Tipo    | Descripción                          |
+|---------------|---------|--------------------------------------|
+| pk            | string  | PK. `INVITATION#<code>`.             |
+| sk            | string  | SK. `INVITATION#<code>`.             |
+| invitationCode| string  | Código único de invitación.           |
+| inviterId     | string  | Cognito `sub` del usuario que invita. |
+| inviteeEmail  | string  | Email del invitado.                   |
+| createdAt     | string  | ISO 8601.                            |
+| used          | boolean | Si la invitación fue usada.           |
+| usedBy        | string  | Cognito `sub` del usuario creado (opcional). |
+
+**GSI byInviter:** PK `inviterId` (String), SK `createdAt` (String) — listar invitaciones enviadas por un usuario.

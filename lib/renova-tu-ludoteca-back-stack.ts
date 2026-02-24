@@ -5,6 +5,7 @@ import * as cognito from "aws-cdk-lib/aws-cognito";
 import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as nodeLambda from "aws-cdk-lib/aws-lambda-nodejs";
+import * as iam from "aws-cdk-lib/aws-iam";
 import * as route53 from "aws-cdk-lib/aws-route53";
 import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import { HttpUserPoolAuthorizer } from "aws-cdk-lib/aws-apigatewayv2-authorizers";
@@ -24,7 +25,7 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
       userPoolName: "renova-ludoteca-users",
       signInAliases: { email: true },
       autoVerify: { email: true },
-      selfSignUpEnabled: true,
+      selfSignUpEnabled: false,
       standardAttributes: {
         fullname: { required: true, mutable: true },
       },
@@ -115,6 +116,24 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
       indexName: "byUser",
       partitionKey: { name: "userId", type: dynamodb.AttributeType.STRING },
       sortKey: { name: "joinedAt", type: dynamodb.AttributeType.STRING },
+    });
+
+    const usersTable = new dynamodb.Table(this, "UsersTable", {
+      tableName: "renova-users",
+      partitionKey: { name: "pk", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "sk", type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+    usersTable.addGlobalSecondaryIndex({
+      indexName: "byDni",
+      partitionKey: { name: "dni", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "userId", type: dynamodb.AttributeType.STRING },
+    });
+    usersTable.addGlobalSecondaryIndex({
+      indexName: "byInviter",
+      partitionKey: { name: "inviterId", type: dynamodb.AttributeType.STRING },
+      sortKey: { name: "createdAt", type: dynamodb.AttributeType.STRING },
     });
 
     const algoliaSecret = new secretsmanager.Secret(this, "AlgoliaSecret", {
@@ -340,6 +359,89 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
     meetupsTable.grantReadData(meetupsLeave);
     participantsTable.grantReadWriteData(meetupsLeave);
 
+    // ----- Register Lambda (noAuth) -----
+    const registerHandler = new nodeLambda.NodejsFunction(this, "Register", {
+      entry: path.join(lambdasDir, "users/handlers/register.ts"),
+      handler: "handler",
+      runtime,
+      bundling,
+      environment: {
+        USERS_TABLE: usersTable.tableName,
+        USER_POOL_ID: userPool.userPoolId,
+      },
+      timeout: cdk.Duration.seconds(15),
+    });
+    usersTable.grantReadWriteData(registerHandler);
+    registerHandler.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: [
+          "cognito-idp:AdminCreateUser",
+          "cognito-idp:AdminAddUserToGroup",
+        ],
+        resources: [userPool.userPoolArn],
+      })
+    );
+
+    // ----- Invitations Lambdas -----
+    const invitationFromEmail = this.node.tryGetContext(
+      "invitationFromEmail"
+    ) as string | undefined;
+    const frontendUrl = this.node.tryGetContext("frontendUrl") as
+      | string
+      | undefined;
+
+    const inviteCreate = new nodeLambda.NodejsFunction(this, "InviteCreate", {
+      entry: path.join(lambdasDir, "users/handlers/invite-create.ts"),
+      handler: "handler",
+      runtime,
+      bundling,
+      environment: {
+        USERS_TABLE: usersTable.tableName,
+        INVITATION_FROM_EMAIL: invitationFromEmail ?? "noreply@example.com",
+        FRONTEND_URL: frontendUrl ?? "http://localhost:3000",
+      },
+      timeout: cdk.Duration.seconds(10),
+    });
+    usersTable.grantReadWriteData(inviteCreate);
+    inviteCreate.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"],
+      })
+    );
+
+    const inviteList = new nodeLambda.NodejsFunction(this, "InviteList", {
+      entry: path.join(lambdasDir, "users/handlers/invite-list.ts"),
+      handler: "handler",
+      runtime,
+      bundling,
+      environment: { USERS_TABLE: usersTable.tableName },
+      timeout: cdk.Duration.seconds(5),
+    });
+    usersTable.grantReadData(inviteList);
+
+    const inviteValidate = new nodeLambda.NodejsFunction(this, "InviteValidate", {
+      entry: path.join(lambdasDir, "users/handlers/invite-validate.ts"),
+      handler: "handler",
+      runtime,
+      bundling,
+      environment: { USERS_TABLE: usersTable.tableName },
+      timeout: cdk.Duration.seconds(5),
+    });
+    usersTable.grantReadData(inviteValidate);
+
+    const meHandler = new nodeLambda.NodejsFunction(this, "Me", {
+      entry: path.join(lambdasDir, "users/handlers/me.ts"),
+      handler: "handler",
+      runtime,
+      bundling,
+      environment: { USERS_TABLE: usersTable.tableName },
+      timeout: cdk.Duration.seconds(5),
+    });
+    usersTable.grantReadData(meHandler);
+
     // ----- Custom domain (optional via context) -----
     const apiDomainName = this.node.tryGetContext("apiDomainName") as
       | string
@@ -418,6 +520,7 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
     addRoute("/api/games/{id}", apigwv2.HttpMethod.GET, gamesGet, noAuth);
     addRoute("/api/meetups", apigwv2.HttpMethod.GET, meetupsList, noAuth);
     addRoute("/api/meetups/{id}", apigwv2.HttpMethod.GET, meetupsGet, noAuth);
+    addRoute("/api/register", apigwv2.HttpMethod.POST, registerHandler, noAuth);
 
     // Protected - Games
     addRoute("/api/games", apigwv2.HttpMethod.POST, gamesCreate, authorizer);
@@ -447,6 +550,18 @@ export class RenovaTuLudotecaBackStack extends cdk.Stack {
       meetupsLeave,
       authorizer
     );
+
+    // Invitations (validate is public; create/list require auth)
+    addRoute(
+      "/api/invitations/validate",
+      apigwv2.HttpMethod.GET,
+      inviteValidate,
+      noAuth
+    );
+    addRoute("/api/invitations", apigwv2.HttpMethod.POST, inviteCreate, authorizer);
+    addRoute("/api/invitations", apigwv2.HttpMethod.GET, inviteList, authorizer);
+
+    addRoute("/api/me", apigwv2.HttpMethod.GET, meHandler, authorizer);
 
     new cdk.CfnOutput(this, "ApiUrl", {
       value: customDomain
