@@ -74,3 +74,18 @@ export async function remove(req: Request, res: Response, next: NextFunction): P
     next(e);
   }
 }
+
+export async function uploadImages(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const id = req.params.id;
+    if (!id) {
+      next(new BadRequestError("Falta el id"));
+      return;
+    }
+    const files = (req.files as Express.Multer.File[]) ?? [];
+    const game = await gamesService.uploadImages(req.userId ?? null, id, files);
+    res.json(game);
+  } catch (e) {
+    next(e);
+  }
+}

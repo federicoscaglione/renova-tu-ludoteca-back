@@ -1,6 +1,7 @@
 import * as cdk from "aws-cdk-lib/core";
 import * as ec2 from "aws-cdk-lib/aws-ec2";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as s3 from "aws-cdk-lib/aws-s3";
 import { Construct } from "constructs";
 
 const APP_DIR = "/var/app/renova-tu-ludoteca-back";
@@ -36,6 +37,33 @@ export class RenovaEC2Stack extends cdk.Stack {
         iam.ManagedPolicy.fromAwsManagedPolicyName("AmazonSSMManagedInstanceCore"),
       ],
     });
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ["ses:SendEmail", "ses:SendRawEmail"],
+        resources: ["*"],
+      })
+    );
+
+    const gameImagesBucket = new s3.Bucket(this, "GameImagesBucket", {
+      blockPublicAccess: new s3.BlockPublicAccess({
+        blockPublicAcls: false,
+        blockPublicPolicy: false,
+        ignorePublicAcls: false,
+        restrictPublicBuckets: false,
+      }),
+      enforceSSL: true,
+    });
+    gameImagesBucket.addToResourcePolicy(
+      new iam.PolicyStatement({
+        sid: "PublicReadGetObject",
+        effect: iam.Effect.ALLOW,
+        principals: [new iam.StarPrincipal()],
+        actions: ["s3:GetObject"],
+        resources: [gameImagesBucket.arnForObjects("games/*")],
+      })
+    );
+    gameImagesBucket.grantReadWrite(role, "games/*");
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(
@@ -120,6 +148,11 @@ export class RenovaEC2Stack extends cdk.Stack {
       value: APP_DIR,
       description: "Path on EC2 where the app repo should be cloned",
       exportName: "RenovaEC2AppDir",
+    });
+    new cdk.CfnOutput(this, "GameImagesBucketName", {
+      value: gameImagesBucket.bucketName,
+      description: "S3 bucket for game images (set GAMES_IMAGES_BUCKET in app env)",
+      exportName: "RenovaGameImagesBucketName",
     });
   }
 }

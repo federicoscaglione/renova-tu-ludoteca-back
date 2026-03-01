@@ -1,8 +1,9 @@
 import type { Game } from "../db/schema/index";
 import type { CreateGameInput, UpdateGameInput } from "../validators/games.validators";
-import { NotFoundError, ForbiddenError, UnauthorizedError } from "../lib/errors";
+import { NotFoundError, ForbiddenError, UnauthorizedError, BadRequestError } from "../lib/errors";
 import * as repo from "../repositories/games.repository";
 import * as catalogRepo from "../repositories/game_catalog.repository";
+import * as gameImagesService from "./game-images.service";
 
 function requireUserId(userId: string | null): asserts userId is string {
   if (!userId) throw new UnauthorizedError();
@@ -58,6 +59,12 @@ export async function update(
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("Juego no encontrado");
   if (existing.sellerId !== userId) throw new ForbiddenError();
+  if (body.images !== undefined) {
+    const removed = existing.images.filter((u) => !body.images!.includes(u));
+    if (removed.length > 0) {
+      await gameImagesService.deleteByUrls(removed);
+    }
+  }
   const updates: Partial<Record<string, unknown>> = {};
   const allowed = ["title", "description", "condition", "price", "location", "tags", "images", "catalogGameId", "isPublished"] as const;
   for (const k of allowed) {
@@ -75,5 +82,35 @@ export async function remove(userId: string | null, id: string): Promise<void> {
   const existing = await repo.findById(id);
   if (!existing) throw new NotFoundError("Juego no encontrado");
   if (existing.sellerId !== userId) throw new ForbiddenError();
+  if (existing.images.length > 0) {
+    await gameImagesService.deleteByUrls(existing.images);
+  }
   await repo.remove(id);
+}
+
+const MAX_IMAGES_PER_GAME = 3;
+
+export async function uploadImages(
+  userId: string | null,
+  gameId: string,
+  files: Express.Multer.File[]
+): Promise<Game> {
+  requireUserId(userId);
+  const existing = await repo.findById(gameId);
+  if (!existing) throw new NotFoundError("Juego no encontrado");
+  if (existing.sellerId !== userId) throw new ForbiddenError();
+  const currentCount = existing.images.length;
+  if (currentCount >= MAX_IMAGES_PER_GAME) {
+    throw new BadRequestError("Máximo 3 imágenes por juego");
+  }
+  const slotsLeft = MAX_IMAGES_PER_GAME - currentCount;
+  const toUpload = files.slice(0, slotsLeft);
+  if (toUpload.length === 0) {
+    throw new BadRequestError("No se enviaron imágenes o ya tienes el máximo");
+  }
+  const newUrls = await Promise.all(
+    toUpload.map((f) => gameImagesService.uploadGameImage(gameId, f.buffer))
+  );
+  const updatedImages = [...existing.images, ...newUrls];
+  return repo.update(gameId, { images: updatedImages });
 }

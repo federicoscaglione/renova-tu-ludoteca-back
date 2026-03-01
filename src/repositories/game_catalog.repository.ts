@@ -30,24 +30,33 @@ export interface SearchCatalogResult {
   pageSize: number;
 }
 
+const SIMILARITY_THRESHOLD = 0.2;
+
 export async function search(options: SearchCatalogOptions): Promise<SearchCatalogResult> {
   const page = Math.max(1, options.page ?? 1);
   const pageSize = Math.min(100, Math.max(1, options.pageSize ?? 20));
   const offset = (page - 1) * pageSize;
-  const searchPattern = `%${options.q.trim()}%`;
+  const q = options.q.trim();
+  const searchPattern = `%${q}%`;
 
-  const conditions = [ilike(gameCatalog.name, searchPattern)];
+  // pg_trgm: match by substring (ILIKE) or by similarity (tolerates typos)
+  const similarityCondition = sql`(similarity(${gameCatalog.name}, ${q}) > ${SIMILARITY_THRESHOLD})`;
+  const ilikeCondition = ilike(gameCatalog.name, searchPattern);
+  const textMatchCondition = sql`(${ilikeCondition} OR ${similarityCondition})`;
+  const conditions = [textMatchCondition];
   if (options.excludeExpansions) {
     conditions.push(eq(gameCatalog.isExpansion, false));
   }
   const whereClause = conditions.length > 1 ? and(...conditions) : conditions[0];
+
+  const orderBySimilarity = sql`similarity(${gameCatalog.name}, ${q}) DESC NULLS LAST`;
 
   const [items, countResult] = await Promise.all([
     db
       .select()
       .from(gameCatalog)
       .where(whereClause)
-      .orderBy(asc(gameCatalog.bggRank), asc(gameCatalog.name))
+      .orderBy(orderBySimilarity, asc(gameCatalog.bggRank), asc(gameCatalog.name))
       .limit(pageSize)
       .offset(offset),
     db

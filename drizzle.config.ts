@@ -10,6 +10,8 @@ export default defineConfig({
     "./src/db/schema/participants.ts",
     "./src/db/schema/users.ts",
     "./src/db/schema/invitations.ts",
+    "./src/db/schema/friend_requests.ts",
+    "./src/db/schema/notifications.ts",
   ],
   out: "./drizzle",
   dialect: "postgresql",

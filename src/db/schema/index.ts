@@ -5,3 +5,5 @@ export * from "./meetups";
 export * from "./participants";
 export * from "./users";
 export * from "./invitations";
+export * from "./friend_requests";
+export * from "./notifications";

@@ -7,6 +7,7 @@ const router = Router();
 router.post("/register", usersController.register);
 router.get("/me", authRequired, usersController.me);
 router.patch("/me", authRequired, usersController.updateMe);
+router.get("/users/:id", authRequired, usersController.getById);
 router.get("/invitations/validate", usersController.inviteValidate);
 router.post("/invitations", authRequired, usersController.inviteCreate);
 router.get("/invitations", authRequired, usersController.inviteList);

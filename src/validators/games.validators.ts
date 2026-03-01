@@ -15,7 +15,7 @@ export const createGameSchema = z.object({
   price: z.number({ invalid_type_error: "El precio debe ser un número" }).min(0, "El precio debe ser mayor o igual a 0"),
   location: z.string().optional().default(""),
   tags: z.array(z.string()).optional().default([]),
-  images: z.array(z.string()).optional().default([]),
+  images: z.array(z.string()).max(3, "Máximo 3 imágenes por juego").optional().default([]),
   isPublished: z.boolean().optional().default(false),
 });
 
@@ -27,7 +27,7 @@ export const updateGameSchema = z.object({
   price: z.number().min(0).optional(),
   location: z.string().optional(),
   tags: z.array(z.string()).optional(),
-  images: z.array(z.string()).optional(),
+  images: z.array(z.string()).max(3, "Máximo 3 imágenes por juego").optional(),
   isPublished: z.boolean().optional(),
 });
 

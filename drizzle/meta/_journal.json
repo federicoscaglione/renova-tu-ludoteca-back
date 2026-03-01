@@ -29,6 +29,20 @@
       "when": 1772378823287,
       "tag": "0003_magenta_falcon",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772380000000,
+      "tag": "0004_pg_trgm_extension",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1772390691863,
+      "tag": "0005_uneven_johnny_blaze",
+      "breakpoints": true
     }
   ]
 }

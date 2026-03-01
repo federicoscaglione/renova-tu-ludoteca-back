@@ -4,9 +4,11 @@ import { randomUUID } from "crypto";
 import { db } from "../db";
 import { users } from "../db/schema/users";
 import { logger } from "../lib/logger";
-import { BadRequestError, ConflictError } from "../lib/errors";
+import { BadRequestError, ConflictError, NotFoundError } from "../lib/errors";
+import * as friendRequestsRepo from "../repositories/friend_requests.repository";
 import * as invitationsRepo from "../repositories/invitations.repository";
 import { createCognitoUser } from "../services/cognito-admin";
+import { sendInvitationEmail } from "../services/email";
 
 const ALLOWED_UPDATE_FIELDS = [
   "firstName",
@@ -233,7 +235,61 @@ export async function inviteCreate(req: Request, res: Response, next: NextFuncti
       inviteeEmail: email,
     });
 
+    await sendInvitationEmail({ toEmail: email, invitationCode: code });
+
     res.status(201).json({ invitationCode: code });
+  } catch (e) {
+    next(e);
+  }
+}
+
+export type FriendStatus = "none" | "friends" | "pending_sent" | "pending_received";
+
+function toMeShape(row: { id: string; email: string; firstName: string; lastName: string; city: string; province: string; postalCode: string | null; phone: string; dni: string; address: string; role: string; createdAt: Date }) {
+  return {
+    userId: row.id,
+    email: row.email,
+    firstName: row.firstName,
+    lastName: row.lastName,
+    city: row.city,
+    province: row.province,
+    postalCode: row.postalCode ?? undefined,
+    phone: row.phone,
+    dni: row.dni,
+    address: row.address,
+    role: row.role,
+    createdAt: row.createdAt.toISOString(),
+  };
+}
+
+export async function getById(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const currentUserId = req.userId;
+    if (!currentUserId) {
+      res.status(401).json({ error: "No autorizado" });
+      return;
+    }
+    const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+    if (!id) {
+      next(new BadRequestError("ID de usuario requerido."));
+      return;
+    }
+    const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+    if (!row) {
+      next(new NotFoundError("Usuario no encontrado."));
+      return;
+    }
+    const existing = await friendRequestsRepo.findBetweenUsers(currentUserId, id);
+    let friendStatus: FriendStatus = "none";
+    if (existing) {
+      if (existing.status === "accepted") friendStatus = "friends";
+      else if (existing.fromUserId === currentUserId) friendStatus = "pending_sent";
+      else friendStatus = "pending_received";
+    }
+    res.json({
+      ...toMeShape(row),
+      friendStatus,
+    });
   } catch (e) {
     next(e);
   }
