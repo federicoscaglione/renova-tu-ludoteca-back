@@ -68,6 +68,13 @@ Variables en el servidor: `DATABASE_URL`, `COGNITO_USER_POOL_ID`, y opcionalment
 
 El esquema de referencia es el de **PostgreSQL** definido con Drizzle en **`src/db/schema/`**. Ver [docs/database.md](docs/database.md) para más detalle (incluye referencia legacy a DynamoDB ya no usada).
 
+**Migraciones (Drizzle):**
+
+- `npm run db:generate` – Genera una migración en `drizzle/` a partir de los cambios en el esquema.
+- Aplicar cambios:
+  - **Con migraciones:** ejecutar los SQL generados contra tu base (o usar el comando que tengas para correr migraciones).
+  - **Sin migraciones (desarrollo):** `npx drizzle-kit push` sincroniza el esquema con la base (útil para probar; en producción conviene usar migraciones).
+
 ## Estructura del proyecto
 
 ```

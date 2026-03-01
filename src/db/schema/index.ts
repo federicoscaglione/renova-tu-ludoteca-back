@@ -1,3 +1,4 @@
+export * from "./game_catalog";
 export * from "./games";
 export * from "./offers";
 export * from "./meetups";

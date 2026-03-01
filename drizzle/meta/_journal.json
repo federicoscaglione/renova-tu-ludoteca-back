@@ -8,6 +8,20 @@
       "when": 1772331985608,
       "tag": "0000_demonic_tinkerer",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1772339368699,
+      "tag": "0001_white_nicolaos",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1772340603686,
+      "tag": "0002_blushing_electro",
+      "breakpoints": true
     }
   ]
 }

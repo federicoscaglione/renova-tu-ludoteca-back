@@ -1,10 +1,14 @@
 import "dotenv/config";
-import { config } from "./config/index.js";
-import { logger } from "./lib/logger.js";
-import app from "./app.js";
+import { config } from "./config/index";
+import { logger } from "./lib/logger";
+import { warmJwksCache } from "./middleware/auth";
+import { startScheduler } from "./jobs/scheduler";
+import app from "./app";
 
 const server = app.listen(config.port, () => {
   logger.info({ port: config.port }, "Server listening");
+  warmJwksCache();
+  startScheduler();
 });
 
 process.on("SIGTERM", () => {

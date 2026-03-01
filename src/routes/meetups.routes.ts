@@ -1,6 +1,6 @@
 import { Router } from "express";
-import { authOptional, authRequired } from "../middleware/auth.js";
-import * as meetupsController from "../controllers/meetups.controller.js";
+import { authOptional, authRequired } from "../middleware/auth";
+import * as meetupsController from "../controllers/meetups.controller";
 
 const router = Router();
 

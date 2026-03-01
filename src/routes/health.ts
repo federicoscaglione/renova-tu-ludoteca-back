@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { sql } from "drizzle-orm";
-import { db } from "../db/index.js";
+import { db } from "../db/index";
 
 export async function health(_req: Request, res: Response): Promise<void> {
   try {

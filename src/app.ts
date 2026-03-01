@@ -1,22 +1,32 @@
 import express from "express";
 import cors from "cors";
 import pinoHttp from "pino-http";
-import { config } from "./config/index.js";
-import { logger } from "./lib/logger.js";
-import { errorHandler } from "./middleware/errorHandler.js";
-import routes from "./routes/index.js";
-import { openApiSpec, openApiUi, openApiUiSetup } from "./openapi/spec.js";
+import { config } from "./config/index";
+import { logger } from "./lib/logger";
+import { errorHandler } from "./middleware/errorHandler";
+import routes from "./routes/index";
+import { openApiSpec, openApiUi, openApiUiSetup } from "./openapi/spec";
 
 const app = express();
 
+const isDev = config.nodeEnv !== "production";
 app.use(
-  pinoHttp({ logger, autoLogging: true })
+  pinoHttp({
+    logger,
+    autoLogging: true,
+    ...(isDev && {
+      serializers: {
+        req: (req) => ({ method: req.method, url: req.url }),
+        res: (res) => ({ statusCode: res.statusCode }),
+      },
+    }),
+  })
 );
 
 app.use(
   cors({
     origin: [...config.cors.origins],
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
