@@ -3,8 +3,9 @@
 # Prereqs: AWS CLI configured, key pair .pem for the instance, stack RenovaEC2Stack deployed.
 #
 # Usage:
-#   ./scripts/deploy-ec2.sh
-#   EC2_HOST=1.2.3.4 SSH_KEY=~/.ssh/renova-ec2-deploy.pem ./scripts/deploy-ec2.sh
+#   npm run deploy:ec2   (or ./scripts/deploy-ec2.sh)
+#   Uses ~/.ssh/renova-ec2-deploy.pem by default. Override with SSH_KEY if needed.
+#   EC2_HOST=1.2.3.4 SSH_KEY=/path/to/key.pem ./scripts/deploy-ec2.sh
 #
 # First time on server: ensure repo is cloned at /var/app/renova-tu-ludoteca-back
 # (clone manually or set GIT_REPO_URL and the script will clone if dir is empty).

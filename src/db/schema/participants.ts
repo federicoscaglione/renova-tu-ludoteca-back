@@ -1,5 +1,5 @@
 import { pgTable, text, timestamp, uuid, primaryKey } from "drizzle-orm/pg-core";
-import { meetups } from "./meetups.js";
+import { meetups } from "./meetups";
 
 export const sessionParticipants = pgTable(
   "session_participants",

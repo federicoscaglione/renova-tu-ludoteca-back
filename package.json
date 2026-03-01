@@ -11,6 +11,7 @@
     "test": "jest",
     "cdk": "cdk",
     "deploy": "cdk deploy",
+    "deploy:ec2": "./scripts/deploy-ec2.sh",
     "db:generate": "drizzle-kit generate",
     "db:push": "drizzle-kit push"
   },

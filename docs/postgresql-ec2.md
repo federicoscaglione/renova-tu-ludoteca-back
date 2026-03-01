@@ -70,7 +70,17 @@ CREATE DATABASE renova OWNER renova;
 \q
 ```
 
-(Opcional) Permitir conexiones locales con contraseña en `pg_hba.conf` (por defecto suele estar `peer` para local; si la app corre como `ec2-user`, podés usar `md5` o `scram-sha-256` para el usuario `renova`.)
+### Permitir que el usuario `renova` use contraseña (evitar "Ident authentication failed")
+
+Por defecto Postgres suele usar `peer` para conexiones locales y rechaza la contraseña. Para que la app y Drizzle (incluso por túnel) puedan conectarse como `renova` con contraseña, en la EC2 agregá una línea en `pg_hba.conf`:
+
+```bash
+# En la EC2; la ruta del data dir puede ser /var/lib/pgsql/data (ver SHOW data_directory; en psql)
+echo "host renova renova 127.0.0.1/32 scram-sha-256" | sudo tee -a /var/lib/pgsql/data/pg_hba.conf
+sudo systemctl restart postgresql
+```
+
+Si tu data directory es otro (ej. `/var/lib/pgsql/15/data`), usá esa ruta en lugar de `/var/lib/pgsql/data`.
 
 ## 3. Ejecutar migraciones (tablas) en la EC2
 
