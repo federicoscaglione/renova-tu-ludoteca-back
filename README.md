@@ -1,22 +1,22 @@
 # renova-tu-ludoteca-back
 
-Backend para la web Renova tu Ludoteca: API REST sobre AWS (CDK, Lambda, DynamoDB, Cognito, Algolia).
+Backend para la web Renova tu Ludoteca. Incluye:
 
-## Stack
+- **Stack CDK (RenovaTuLudotecaBackStack)**: gestiona solo **Cognito** (User Pool y App Client). La API en Express y el frontend usan estos valores para autenticación.
+- **Servidor Express** en `src/`: API REST con Node, Drizzle + PostgreSQL y validación JWT con Cognito. Pensado para desplegar en EC2. Ver **Deploy en EC2** y [docs/postgresql-ec2.md](docs/postgresql-ec2.md).
 
-- **API**: API Gateway HTTP API con rutas bajo `/api/*`
-- **Lambdas**: Node.js 20 (games, offers, meetups)
-- **DynamoDB**: Tablas `renova-games`, `renova-offers`, `renova-meetups`, `renova-session-participants`
-- **Auth**: Cognito User Pool con grupos `normal` y `premium`
-- **Búsqueda**: Algolia para el índice de juegos (credenciales en Secrets Manager)
+La API en producción es la que corre en **Express en EC2** (no Lambda ni API Gateway). Lambdas, API Gateway y DynamoDB fueron eliminados tras la migración a Express + PostgreSQL.
+
+## Stack CDK (solo Cognito)
+
+- **Cognito**: User Pool `renova-ludoteca-users`, grupos `normal` y `premium`, App Client `renova-web-client`.
 
 ## Requisitos
 
 - Node.js 18+
 - AWS CLI configurado con el perfil por defecto (`aws sts get-caller-identity`)
-- Cuenta Algolia (para búsqueda de juegos)
 
-## Despliegue
+## Despliegue del stack Cognito
 
 1. **Primera vez en la cuenta/región** (solo una vez):
 
@@ -28,99 +28,55 @@ Backend para la web Renova tu Ludoteca: API REST sobre AWS (CDK, Lambda, DynamoD
 
    ```bash
    npm install
-   npx cdk deploy
+   npx cdk deploy RenovaTuLudotecaBackStack
    ```
 
-   Acepta los cambios cuando lo pida. Al final verás los outputs: `ApiUrl`, `UserPoolId`, `UserPoolClientId`.
+   Acepta los cambios cuando lo pida. Los outputs son: `UserPoolId`, `UserPoolClientId`.
 
-3. **Custom domain y Route 53** (opcional): Si en `cdk.json` (context) tenés `apiDomainName` y `apiCertificateArn`, el stack crea un custom domain en API Gateway y una **Hosted Zone en Route 53** para el dominio base, más un CNAME `api` → API Gateway. Para que el DNS use Route 53:
-   - Tras el deploy, en los outputs aparece **Route53Nameservers** (4 nombres separados por coma).
-   - En **DonWeb** → dominio renovatuludoteca.com → pestaña **NS Y REGISTROS DNS** → **Editar nameservers**.
-   - Reemplazá los nameservers actuales por los 4 de Route 53 (uno por línea o como pida DonWeb). Guardá.
-   - La propagación puede tardar hasta 24–48 h (en la práctica suele ser menos).
-   - **Validación del certificado ACM**: si el certificado estaba en "Pending validation", en **Route 53** (consola AWS → Route 53 → tu hosted zone) agregá el registro CNAME que indica ACM (mismo nombre y valor que antes en DonWeb). Cuando ACM valide, el certificado pasará a "Issued".
-   - Coste: Route 53 cobra ~0,50 USD/mes por hosted zone.
+## Variables para el frontend y la API
 
-4. **Algolia** (opcional): Para activar la sincronización de juegos con Algolia, actualiza el secreto en AWS:
-
-   - Consola AWS → Secrets Manager → secreto `renova/algolia`
-   - Editar y poner el JSON con tus credenciales, por ejemplo:
-     ```json
-     {
-       "ALGOLIA_APP_ID": "TU_APP_ID",
-       "ALGOLIA_API_KEY": "TU_API_KEY_ADMIN"
-     }
-     ```
-   - Crea en Algolia un índice llamado `games`. La Lambda de games indexa/actualiza/borra objetos ahí al crear/editar/eliminar juegos.
-
-## Variables para el frontend
-
-Después de `cdk deploy`, usa estos valores en tu app (por ejemplo en `.env.local` o en la config de Cognito/API):
+Después de `cdk deploy`, usa estos valores:
 
 | Variable | Descripción | Dónde obtenerla |
 |----------|-------------|------------------|
-| `NEXT_PUBLIC_API_URL` | Base URL de la API | Output **ApiUrl** (ej. `https://xxxx.execute-api.us-east-1.amazonaws.com`) |
-| `NEXT_PUBLIC_USER_POOL_ID` | Cognito User Pool ID | Output **UserPoolId** |
-| `NEXT_PUBLIC_USER_POOL_CLIENT_ID` | Cognito App Client ID | Output **UserPoolClientId** |
+| `NEXT_PUBLIC_API_URL` | Base URL de la API | URL de tu API en EC2 (ej. `https://api.renovatuludoteca.com` o la IP/DNS de la instancia) |
+| `NEXT_PUBLIC_USER_POOL_ID` | Cognito User Pool ID | Output **UserPoolId** del stack |
+| `NEXT_PUBLIC_USER_POOL_CLIENT_ID` | Cognito App Client ID | Output **UserPoolClientId** del stack |
 
-En el frontend, las peticiones a la API deben enviar el JWT de Cognito en el header:
+En el servidor Express (EC2): `COGNITO_USER_POOL_ID`, `COGNITO_USER_POOL_CLIENT_ID` (y opcionalmente `COGNITO_REGION`). Las peticiones autenticadas envían el JWT de Cognito en el header `Authorization: Bearer <token>`.
 
-```
-Authorization: Bearer <idToken o accessToken>
-```
+## Deploy en EC2
 
-Para rutas públicas (GET `/api/games`, GET `/api/games/{id}`, GET `/api/meetups`, GET `/api/meetups/{id}`) no hace falta token.
+Si usás el stack **RenovaEC2Stack** (instancia con Node, Nginx, PM2, PostgreSQL):
 
-## Rutas de la API
+1. Desplegar infra: `npx cdk deploy RenovaEC2Stack`.
+2. En la EC2: crear base y usuario PostgreSQL; ver [docs/postgresql-ec2.md](docs/postgresql-ec2.md).
+3. Deploy de la app: `./scripts/deploy-ec2.sh` (clona o actualiza el repo en la instancia, `npm ci`, `npm run build`, PM2 con `dist/server.js`).
 
-- **Games**: `GET/POST /api/games`, `GET/PUT/DELETE /api/games/{id}`. Query `?sellerId=xxx` en GET lista juegos por vendedor.
-- **Offers**: `GET/POST /api/offers`, `GET/PUT/DELETE /api/offers/{id}`. Query `?gameId=xxx` en GET lista ofertas de un juego.
-- **Meetups**: `GET/POST /api/meetups`, `GET/PUT/DELETE /api/meetups/{id}`, `POST/DELETE /api/meetups/{id}/participants` (unirse / abandonar).
-
-Rutas que requieren autenticación usan el autorizador JWT de Cognito (token en `Authorization`).
+Variables en el servidor: `DATABASE_URL`, `COGNITO_USER_POOL_ID`, y opcionalmente `COGNITO_REGION`.
 
 ## Comandos útiles
 
-- `npm run build` – Compilar TypeScript (CDK)
+- `npm run build` – Compilar el servidor Express (TypeScript → `dist/`)
+- `npm run build:cdk` – Compilar CDK (`bin/`, `lib/`)
 - `npx cdk synth` – Generar CloudFormation
-- `npx cdk deploy` – Desplegar el stack
+- `npx cdk deploy RenovaTuLudotecaBackStack` – Desplegar el stack Cognito
 - `npx cdk diff` – Ver diferencias con el stack desplegado
 - `npx cdk destroy` – Eliminar el stack (¡cuidado en producción!)
 
 ## Esquema de la base de datos
 
-La definición explícita de tablas, claves e índices está en **[docs/database.md](docs/database.md)**. Los tipos TypeScript que reflejan ese esquema están en **lambdas/shared/schema.ts** (GameItem, OfferItem, MeetupItem, SessionParticipantItem).
+El esquema de referencia es el de **PostgreSQL** definido con Drizzle en **`src/db/schema/`**. Ver [docs/database.md](docs/database.md) para más detalle (incluye referencia legacy a DynamoDB ya no usada).
 
 ## Estructura del proyecto
 
-Una **Lambda por operación**. Cada dominio (games, offers, meetups) está organizado en capas:
-
 ```
 bin/renova-tu-ludoteca-back.ts
-lib/renova-tu-ludoteca-back-stack.ts
+lib/renova-tu-ludoteca-back-stack.ts   # Solo Cognito
+src/                                    # Servidor Express (API + Drizzle + PostgreSQL)
 docs/
-  database.md          # Esquema explícito de DynamoDB (tablas, columnas, GSI)
-lambdas/
-  shared/
-    api.ts             # jsonResponse, getUserId, parseBody, errorToResponse
-    errors.ts          # AppError, UnauthorizedError, NotFoundError, etc.
-    schema.ts          # Tipos: GameItem, OfferItem, MeetupItem, SessionParticipantItem
-    validation.ts      # validateBody, validateBodyOptional, requirePathParam, optionalQueryParam
-    utils.ts           # uuid
-  games/
-    validators.ts      # createGameSchema, updateGameSchema (Zod)
-  games/
-    handlers/          # Entrada de cada Lambda (list, get, create, update, delete)
-    repositories/      # game.repository.ts — acceso DynamoDB
-    services/          # game.service.ts (reglas de negocio), algolia.service.ts
-  offers/
-    handlers/
-    repositories/      # offer.repository.ts
-    services/          # offer.service.ts
-  meetups/
-    handlers/
-    repositories/      # meetup.repository.ts, participant.repository.ts
-    services/          # meetup.service.ts
+  database.md
+  postgresql-ec2.md
 ```
 
-El deploy usa el **perfil por defecto** de AWS; no hace falta configurar `AWS_PROFILE` si ya usas ese perfil.
+El deploy del stack usa el **perfil por defecto** de AWS.

@@ -1,6 +1,12 @@
-# Esquema de base de datos (DynamoDB)
+# Esquema de base de datos
 
-Definición explícita de tablas, claves e índices. Los tipos TypeScript están en `lambdas/shared/schema.ts` y deben mantenerse alineados con este documento.
+**Esquema de referencia:** PostgreSQL con Drizzle en **`src/db/schema/`**. La API en Express usa ese esquema.
+
+A continuación se documenta el esquema legacy de **DynamoDB** (ya no usado; las tablas fueron retiradas del stack CDK tras la migración a Express + PostgreSQL). Se conserva como referencia histórica.
+
+---
+
+## DynamoDB (legacy, no en uso)
 
 ---
 
