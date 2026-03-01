@@ -15,10 +15,6 @@ const ALLOWED_UPDATE_FIELDS = [
   "address",
   "city",
   "province",
-  "provinceId",
-  "localityId",
-  "department",
-  "municipality",
   "postalCode",
 ] as const;
 
@@ -33,12 +29,8 @@ export async function register(req: Request, res: Response, next: NextFunction):
     const dni = typeof body.dni === "string" ? body.dni.trim() : "";
     const phone = typeof body.phone === "string" ? body.phone.trim() : "";
     const address = typeof body.address === "string" ? body.address.trim() : "";
-    const city = typeof body.city === "string" ? body.city.trim() : "";
+    const city = typeof body.city === "string" ? body.city.trim().toLowerCase() : "";
     const province = typeof body.province === "string" ? body.province.trim() : "";
-    const provinceId = typeof body.provinceId === "string" ? body.provinceId.trim() || null : null;
-    const localityId = typeof body.localityId === "string" ? body.localityId.trim() || null : null;
-    const department = typeof body.department === "string" ? body.department.trim() || null : null;
-    const municipality = typeof body.municipality === "string" ? body.municipality.trim() || null : null;
     const postalCode = typeof body.postalCode === "string" ? body.postalCode.trim() : undefined;
 
     if (!invitationCode || !email || !password || !firstName || !lastName || !dni) {
@@ -76,10 +68,6 @@ export async function register(req: Request, res: Response, next: NextFunction):
       address: address || "",
       city: city || "",
       province: province || "",
-      provinceId,
-      localityId,
-      department,
-      municipality,
       postalCode: postalCode ?? null,
       role: "normal",
     });
@@ -122,10 +110,6 @@ export async function me(req: Request, res: Response, next: NextFunction): Promi
       lastName: row.lastName,
       city: row.city,
       province: row.province,
-      provinceId: row.provinceId ?? undefined,
-      localityId: row.localityId ?? undefined,
-      department: row.department ?? undefined,
-      municipality: row.municipality ?? undefined,
       postalCode: row.postalCode ?? undefined,
       phone: row.phone,
       dni: row.dni,
@@ -177,13 +161,9 @@ export async function updateMe(req: Request, res: Response, next: NextFunction):
     if (updates.lastName !== undefined) dbUpdates.lastName = updates.lastName;
     if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
     if (updates.address !== undefined) dbUpdates.address = updates.address;
-    if (updates.city !== undefined) dbUpdates.city = updates.city;
+    if (updates.city !== undefined) dbUpdates.city = updates.city.trim().toLowerCase();
     if (updates.province !== undefined) dbUpdates.province = updates.province;
     if (updates.postalCode !== undefined) dbUpdates.postalCode = updates.postalCode || null;
-    if (updates.provinceId !== undefined) dbUpdates.provinceId = updates.provinceId || null;
-    if (updates.localityId !== undefined) dbUpdates.localityId = updates.localityId || null;
-    if (updates.department !== undefined) dbUpdates.department = updates.department || null;
-    if (updates.municipality !== undefined) dbUpdates.municipality = updates.municipality || null;
     await db.update(users).set(dbUpdates).where(eq(users.id, userId));
     res.json({ message: "Perfil actualizado" });
   } catch (e) {
