@@ -10,9 +10,7 @@ export function startScheduler(): void {
   cron.schedule(CRON_SCHEDULE, async () => {
     try {
       const { enriched } = await runEnrichCatalogJob();
-      if (enriched > 0) {
-        logger.info({ enriched }, "cron enrich-catalog: entries enriched");
-      }
+      logger.info({ enriched }, "cron enrich-catalog: run completed");
     } catch (e) {
       logger.error(e, "cron enrich-catalog failed");
     }

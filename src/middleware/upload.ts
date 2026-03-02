@@ -6,7 +6,7 @@ const MAX_FILES = 3;
 
 const storage = multer.memoryStorage();
 
-const fileFilter: multer.Options["fileFilter"] = (_req, file, cb) => {
+const fileFilter: NonNullable<multer.Options["fileFilter"]> = (_req, file, cb) => {
   const allowed = /^image\/(jpeg|png|webp|gif)$/i;
   if (allowed.test(file.mimetype)) {
     cb(null, true);
